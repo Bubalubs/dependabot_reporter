@@ -17,4 +17,6 @@ Clone the repository and build the binary:
 ```sh
 git clone git@github.com:bubalubs/dependabot_reporter.git
 cd dependabot_reporter
-go build -o dependabot-reporter main.go
+touch config.yaml
+go run . --repo=owner/repo
+```
