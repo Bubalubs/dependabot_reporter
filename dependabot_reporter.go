@@ -38,6 +38,7 @@ type DependabotAlert struct {
 		} `json:"identifiers"`
 	} `json:"security_advisory"`
 	HTMLURL string `json:"html_url"`
+	State   string `json:"state"`
 }
 
 var (
@@ -78,7 +79,7 @@ func main() {
 	alerts := fetchDependabotAlerts(config.Token, repo)
 
 	if len(alerts) == 0 {
-		fmt.Println("No Dependabot alerts found.")
+		fmt.Println("No Open Dependabot alerts found. Congratulations! :)")
 		return
 	}
 
@@ -117,6 +118,7 @@ func fetchDependabotAlerts(token, repo string) []DependabotAlert {
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Cache-Control", "no-cache")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -130,13 +132,21 @@ func fetchDependabotAlerts(token, repo string) []DependabotAlert {
 		log.Fatalf("Error fetching alerts: %v\nResponse: %s", resp.Status, string(body))
 	}
 
-	var alerts []DependabotAlert
-	err = json.NewDecoder(resp.Body).Decode(&alerts)
+	var allAlerts []DependabotAlert
+	err = json.NewDecoder(resp.Body).Decode(&allAlerts)
 	if err != nil {
 		log.Fatalf("Error decoding response: %v", err)
 	}
 
-	return alerts
+	// Only return open alerts
+	openAlerts := []DependabotAlert{}
+	for _, alert := range allAlerts {
+		if alert.State == "open" {
+			openAlerts = append(openAlerts, alert)
+		}
+	}
+
+	return openAlerts
 }
 
 func exportJSON(alerts []DependabotAlert) {
