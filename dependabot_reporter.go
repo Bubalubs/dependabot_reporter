@@ -152,25 +152,34 @@ func fetchDependabotAlerts(token, repo string) []DependabotAlert {
 }
 
 func exportJSON(alerts []DependabotAlert) {
+	repoName := filepath.Base(repo)
+	timestamp := time.Now().Format("20060102-150405")
+	filename := fmt.Sprintf("%s-alerts-%s.json", repoName, timestamp)
+
+	dir := ensureReportsDir()
+	filePath := filepath.Join(dir, filename)
+
 	data, err := json.MarshalIndent(alerts, "", "  ")
 	if err != nil {
 		log.Fatalf("Error marshaling JSON: %v", err)
 	}
 
-	err = os.WriteFile("dependabot_alerts.json", data, 0644)
+	err = os.WriteFile(filePath, data, 0644)
 	if err != nil {
 		log.Fatalf("Error writing JSON file: %v", err)
 	}
 
-	fmt.Println("Alerts exported to dependabot_alerts.json")
+	fmt.Printf("Alerts exported to %s\n", filePath)
 }
 
 func exportCSV(alerts []DependabotAlert, repo string) {
+	dir := ensureReportsDir()
 	repoName := filepath.Base(repo)
 	timestamp := time.Now().Format("20060102-150405")
 	filename := fmt.Sprintf("%s-alerts-%s.csv", repoName, timestamp)
+	filePath := filepath.Join(dir, filename)
 
-	file, err := os.Create(filename)
+	file, err := os.Create(filePath)
 	if err != nil {
 		log.Fatalf("Error creating CSV file: %v", err)
 	}
@@ -196,7 +205,7 @@ func exportCSV(alerts []DependabotAlert, repo string) {
 		}
 	}
 
-	fmt.Printf("Alerts exported to %s\n", filename)
+	fmt.Printf("Exported %d alerts to %s\n", len(alerts), filePath)
 }
 
 func getCVE(identifiers []struct {
@@ -209,4 +218,13 @@ func getCVE(identifiers []struct {
 		}
 	}
 	return "N/A"
+}
+
+func ensureReportsDir() string {
+	dir := "reports"
+	err := os.MkdirAll(dir, 0755)
+	if err != nil {
+		log.Fatalf("Error creating reports directory: %v", err)
+	}
+	return dir
 }
