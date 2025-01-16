@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/csv"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -12,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/urfave/cli/v2"
 	"gopkg.in/yaml.v2"
 )
 
@@ -41,57 +41,79 @@ type DependabotAlert struct {
 	State   string `json:"state"`
 }
 
-var (
-	configFile   string
-	outputFormat string
-	repo         string
-)
-
 func main() {
-	flag.StringVar(&configFile, "config", "config.yaml", "Path to configuration file")
-	flag.StringVar(&outputFormat, "output", "", "Output format (json or csv)")
-	flag.StringVar(&repo, "repo", "", "Repository in owner/repo format")
-	flag.Parse()
+	app := &cli.App{
+		Name:  "Dependabot Alerts Fetcher",
+		Usage: "Fetch and export open Dependabot alerts from a GitHub repository",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "config",
+				Aliases: []string{"c"},
+				Usage:   "Path to configuration file",
+				Value:   "config.yaml",
+				EnvVars: []string{"CONFIG_PATH"},
+			},
+			&cli.StringFlag{
+				Name:    "output",
+				Aliases: []string{"o"},
+				Usage:   "Output format (json or csv)",
+				EnvVars: []string{"OUTPUT_FORMAT"},
+			},
+			&cli.StringFlag{
+				Name:     "repo",
+				Aliases:  []string{"r"},
+				Usage:    "Repository in owner/repo format",
+				Required: true,
+			},
+		},
+		Action: func(c *cli.Context) error {
+			configFile := c.String("config")
+			outputFormat := c.String("output")
+			repo := c.String("repo")
 
-	config := loadConfig(configFile)
+			config := loadConfig(configFile)
 
-	if outputFormat != "" {
-		config.OutputFormat = outputFormat
+			if outputFormat != "" {
+				config.OutputFormat = outputFormat
+			}
+
+			if config.OutputFormat == "" {
+				config.OutputFormat = "json"
+			}
+
+			if config.OutputFormat != "json" && config.OutputFormat != "csv" {
+				return fmt.Errorf("unsupported output format: use 'json' or 'csv'")
+			}
+
+			if config.Token == "" {
+				return fmt.Errorf("GitHub personal access token is required. Set it in your config file or as the DEPENDABOT_TOKEN environment variable")
+			}
+
+			log.Printf("Fetching alerts from repository %s...", repo)
+			alerts := fetchDependabotAlerts(config.Token, repo)
+
+			if len(alerts) == 0 {
+				fmt.Println("No open Dependabot alerts found. Congratulations! :)")
+				return nil
+			}
+
+			log.Printf("Found %d open Dependabot alerts!", len(alerts))
+			log.Printf("Exporting alerts to %s format...", config.OutputFormat)
+
+			switch config.OutputFormat {
+			case "json":
+				exportJSON(alerts, repo)
+			case "csv":
+				exportCSV(alerts, repo)
+			}
+
+			return nil
+		},
 	}
 
-	if outputFormat == "" && config.OutputFormat == "" {
-		config.OutputFormat = "json"
-	}
-
-	if repo == "" {
-		log.Fatal("Repository is required. Provide it using the --repo flag.")
-	}
-
-	if config.OutputFormat != "json" && config.OutputFormat != "csv" {
-		log.Fatal("Unsupported output format. Use 'json' or 'csv'.")
-	}
-
-	if config.Token == "" {
-		log.Fatal("Github Personal Access token is required. Please set it in your config.yaml file (See config.yaml.example) or as the DEPENDABOT_TOKEN environment variable.")
-	}
-
-	log.Printf("Fetching alerts from repository %s...", repo)
-	alerts := fetchDependabotAlerts(config.Token, repo)
-
-	if len(alerts) == 0 {
-		fmt.Println("No open Dependabot alerts found. Congratulations! :)")
-		return
-	}
-
-	log.Printf("Found %d open Dependabot alerts!", len(alerts))
-
-	log.Printf("Exporting alerts to %s format...", config.OutputFormat)
-
-	switch config.OutputFormat {
-	case "json":
-		exportJSON(alerts)
-	case "csv":
-		exportCSV(alerts, repo)
+	err := app.Run(os.Args)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -140,7 +162,6 @@ func fetchDependabotAlerts(token, repo string) []DependabotAlert {
 		log.Fatalf("Error decoding response: %v", err)
 	}
 
-	// Only return open alerts
 	openAlerts := []DependabotAlert{}
 	for _, alert := range allAlerts {
 		if alert.State == "open" {
@@ -151,7 +172,7 @@ func fetchDependabotAlerts(token, repo string) []DependabotAlert {
 	return openAlerts
 }
 
-func exportJSON(alerts []DependabotAlert) {
+func exportJSON(alerts []DependabotAlert, repo string) {
 	repoName := filepath.Base(repo)
 	timestamp := time.Now().Format("20060102-150405")
 	filename := fmt.Sprintf("%s-alerts-%s.json", repoName, timestamp)
