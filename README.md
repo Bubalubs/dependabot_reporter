@@ -12,11 +12,26 @@ Dependabot Reporter is a tool designed to generate reports based on Dependabot a
 
 ## Installation
 
-Clone the repository and build the binary:
+Make sure you have go installed. If not, you can download it from the https://go.dev/dl page.
+
+Then you can install the tool by running the following commands.
 
 ```sh
+# Clone the repository
 git clone git@github.com:bubalubs/dependabot_reporter.git
+
+# Change to the project directory
 cd dependabot_reporter
-touch config.yaml
+
+# Setup the configuration file
+cp config.yaml.example config.yaml
+
+# Generate a report
 go run . --repo=owner/repo
+```
+
+## Available Flags
+
+```sh
+go run . --repo=owner/repo --config=config.yaml --output=csv
 ```
