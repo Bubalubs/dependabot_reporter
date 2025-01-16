@@ -72,7 +72,7 @@ func main() {
 	}
 
 	if config.Token == "" {
-		log.Fatal("Dependabot token is required. Set it in the config file or as the DEPENDABOT_TOKEN environment variable.")
+		log.Fatal("Github Personal Access token is required. Please set it in your config.yaml file (See config.yaml.example) or as the DEPENDABOT_TOKEN environment variable.")
 	}
 
 	log.Printf("Fetching alerts from repository %s...", repo)
