@@ -79,9 +79,11 @@ func main() {
 	alerts := fetchDependabotAlerts(config.Token, repo)
 
 	if len(alerts) == 0 {
-		fmt.Println("No Open Dependabot alerts found. Congratulations! :)")
+		fmt.Println("No open Dependabot alerts found. Congratulations! :)")
 		return
 	}
+
+	log.Printf("Found %d open Dependabot alerts!", len(alerts))
 
 	log.Printf("Exporting alerts to %s format...", config.OutputFormat)
 
